@@ -21,13 +21,15 @@ def predict_store_sales():
 
         # Extract relevant product and store features from the input data
     sample = {
-        'Product_Weight': super_kart_data['Product_Weight'],
-        'Product_MRP': super_kart_data['Product_MRP'],
-        'Store_Establishment_Year': super_kart_data['Store_Establishment_Year'],
-        'Store_Size': super_kart_data['Store_Size'],
-        'Store_Location_City_Type': super_kart_data['Store_Location_City_Type'],
-        'Store_Type': super_kart_data['Store_Type']
-    }
+    'Product_Weight': super_kart_data['Product_Weight'],
+    'Product_MRP': super_kart_data['Product_MRP'],
+    'Store_Age_Years': super_kart_data['Store_Age_Years'],
+    'Product_Id_char': super_kart_data['Product_Id_char'],
+    'Product_Type_Category': super_kart_data['Product_Type_Category'],
+    'Store_Size': super_kart_data['Store_Size'],
+    'Store_Location_City_Type': super_kart_data['Store_Location_City_Type'],
+    'Store_Type': super_kart_data['Store_Type']
+}
 
     # Convert the extracted data into a DataFrame
     input_data = pd.DataFrame([sample])
