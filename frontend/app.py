@@ -6,14 +6,16 @@ import requests
 # Base URL of the Flask backend (Docker's internal DNS resolves "backend")
 BACKEND_URL = "http://backend:7860"
 
-# These three values MUST match your Flask backend (routes and response key)
+# These values MUST match the Flask backend (routes and response key)
 SINGLE_ENDPOINT = "/v1/salesforecast"
 BATCH_ENDPOINT = "/v1/salesforecastbatch"
-PREDICTION_KEY = "Predicted_Sales"
+PREDICTION_KEY = "Predicted_Product_Store_Sales_Total"
+
+# Must match REFERENCE_YEAR used when Store_Age_Years was engineered in training
+REFERENCE_YEAR = 2025
 
 st.set_page_config(page_title="SuperKart Sales Forecast", page_icon="🛒")
 
-# Streamlit UI for SuperKart Sales Forecasting
 st.title("SuperKart Sales Forecasting App")
 st.write(
     "This app predicts the total sales revenue (`Product_Store_Sales_Total`) "
@@ -26,17 +28,22 @@ st.subheader("Product Details")
 col1, col2 = st.columns(2)
 with col1:
     Product_Weight = st.slider("Product weight (Product_Weight)", 4.0, 22.0, 12.65, 0.01)
+    Product_Id_char = st.selectbox(
+        "Product family (Product_Id_char)", ["FD", "DR", "NC"], index=0,
+        help="FD = Food, DR = Drinks, NC = Non-consumable"
+    )
 with col2:
     Product_MRP = st.slider("Maximum retail price (Product_MRP)", 30.0, 270.0, 150.0, 0.5)
+    Product_Type_Category = st.selectbox(
+        "Product category (Product_Type_Category)", ["Perishables", "Non Perishables"], index=1
+    )
 
 # Store details
 st.subheader("Store Details")
 col3, col4 = st.columns(2)
 with col3:
     Store_Establishment_Year = st.selectbox(
-        "Store establishment year (Store_Establishment_Year)",
-        [1987, 1998, 1999, 2009],
-        index=3
+        "Store establishment year", [1987, 1998, 1999, 2009], index=3
     )
     Store_Size = st.selectbox("Store size (Store_Size)", ["Small", "Medium", "High"], index=1)
 with col4:
@@ -49,21 +56,22 @@ with col4:
         index=3
     )
 
-# Create input payload (keys must match the backend's expected feature names)
+# Payload keys must match the backend's expected feature names
 input_data = {
     'Product_Weight': Product_Weight,
     'Product_MRP': Product_MRP,
-    'Store_Establishment_Year': Store_Establishment_Year,
+    'Store_Age_Years': REFERENCE_YEAR - Store_Establishment_Year,
+    'Product_Id_char': Product_Id_char,
+    'Product_Type_Category': Product_Type_Category,
     'Store_Size': Store_Size,
     'Store_Location_City_Type': Store_Location_City_Type,
-    'Store_Type': Store_Type
+    'Store_Type': Store_Type,
 }
 
 # Online (single) prediction
 if st.button("Predict", type='primary'):
     try:
         response = requests.post(f"{BACKEND_URL}{SINGLE_ENDPOINT}", json=input_data, timeout=30)
-
         if response.status_code == 200:
             result = response.json()
             predicted_sales = result.get(PREDICTION_KEY)
@@ -77,12 +85,12 @@ if st.button("Predict", type='primary'):
     except requests.exceptions.RequestException as e:
         st.error(f"Could not reach the backend API: {e}")
 
-
 # Batch Prediction
 st.subheader("Batch Prediction")
 st.write(
-    "Upload a CSV file containing these columns: `Product_Weight`, `Product_MRP`, "
-    "`Store_Establishment_Year`, `Store_Size`, `Store_Location_City_Type`, `Store_Type`."
+    "Upload a CSV file containing at least these columns: `Product_Weight`, `Product_MRP`, "
+    "`Store_Age_Years`, `Product_Id_char`, `Product_Type_Category`, `Store_Size`, "
+    "`Store_Location_City_Type`, `Store_Type`. Extra columns are ignored."
 )
 
 file = st.file_uploader("Upload CSV file", type=["csv"])
@@ -99,11 +107,9 @@ if file is not None:
                 files={"file": ("batch.csv", file_bytes, "text/csv")},
                 timeout=60
             )
-
             if response.status_code == 200:
-                result = response.json()
                 st.header("Batch Prediction Results")
-                st.write(result)
+                st.dataframe(pd.DataFrame(response.json()))
             else:
                 st.error(f"Error in API request (status {response.status_code}): {response.text}")
         except requests.exceptions.RequestException as e:
